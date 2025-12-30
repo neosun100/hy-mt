@@ -4,7 +4,7 @@
 <br><br>
 
 <p align="center">
- <img src="https://dscache.tencent-cloud.cn/upload/uploader/hunyuan-64b418fd052c033b228e04bc77bbc4b54fd7f5bc.png" width="400"/> <br>
+ <img src="imgs/hunyuanlogo.png" width="400"/> <br>
 </p><p></p>
 
 
@@ -30,7 +30,7 @@
 
 
 ### 核心特性与优势
-- HY-MT1.5-1.8B同尺寸业界效果最优，甚至超过中等尺寸模型，又好又快
+- HY-MT1.5-1.8B同尺寸业界效果最优，超过大部分商用翻译API
 - HY-MT1.5-1.8B支持端侧部署和实时翻译场景，应用面广泛
 - HY-MT1.5-7B相比9月份开源版本，优化注释和语种混杂情况
 - 两个模型均支持术语干预、上下文翻译、带格式翻译
@@ -47,7 +47,7 @@
 <img src="imgs/overall_performance.png" width = "80%" />
 </div>
 
-更多的实验效果和分析可以参考我们的[技术报告](./HY_MT1.5_Technical_Report.pdf)。
+更多的实验效果和分析可以参考我们的[技术报告](./HY_MT1_5_Technical_Report.pdf)。
 
 &nbsp;
 

@@ -5,7 +5,7 @@
 <br><br>
 
 <p align="center">
- <img src="https://dscache.tencent-cloud.cn/upload/uploader/hunyuan-64b418fd052c033b228e04bc77bbc4b54fd7f5bc.png" width="400"/> <br>
+ <img src="imgs/hunyuanlogo.png" width="400"/> <br>
 </p><p></p>
 
 
@@ -30,7 +30,7 @@ Hunyuan Translation Model Version 1.5 includes a 1.8B translation model, HY-MT1.
 
 ## Key Features and Advantages
 
-- HY-MT1.5-1.8B delivers industry-leading performance for its model size, even surpassing some medium-sized models with superior quality and speed.
+- HY-MT1.5-1.8B achieves the industry-leading performance among models of the same size, surpassing most commercial translation APIs.
 - HY-MT1.5-1.8B supports deployment on edge devices and real-time translation scenarios, offering broad applicability.
 - HY-MT1.5-7B, compared to its September open-source version, has been optimized for annotated and mixed-language scenarios.
 - Both models support terminology intervention, contextual translation, and formatted translation.
@@ -48,7 +48,7 @@ Hunyuan Translation Model Version 1.5 includes a 1.8B translation model, HY-MT1.
 </div>
 You can refer to our technical report for more experimental results and analysis.
 
-<a href=./HY_MT1.5_Technical_Report.pdf><b>Technical Report</b> </a>
+<a href=./HY_MT1_5_Technical_Report.pdf><b>Technical Report</b> </a>
 
 &nbsp;
 
