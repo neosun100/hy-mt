@@ -52,7 +52,7 @@
 &nbsp;
 
 ## 模型链接
-| Model Name  | Description | Download |
+| 模型名  | 简介 | 下载链接 |
 | ----------- | ----------- |-----------
 | HY-MT1.5-1.8B  | 混元1.8B翻译模型 |🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-1.8B)|
 | HY-MT1.5-1.8B-FP8 | 混元1.8B翻译模型，fp8量化    | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-1.8B-FP8)|
