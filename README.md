@@ -25,7 +25,7 @@
 - 🔧 **Full Parameter Control** - Temperature, Top-P, Top-K, repetition penalty adjustable
 - 📚 **Terminology Intervention** - Custom term mapping for domain-specific translations
 - 🤖 **MCP Server** - Model Context Protocol support for AI assistants (Claude, etc.)
-- 🐳 **One-Click Deployment** - All-in-One Docker image with model auto-download
+- 🐳 **One-Click Deployment** - All-in-One Docker image with all models pre-downloaded
 - 🔄 **Smart GPU Management** - Auto GPU selection, idle timeout, memory release
 - 🔀 **Multi-Model Support** - Switch between 4 models (1.8B/7B, base/FP8) via UI or API
 
@@ -43,7 +43,7 @@
 ## 📸 Screenshot
 
 <p align="center">
-  <img src="docs/images/ui-screenshot.png" width="800"/>
+  <img src="docs/images/ui-screenshot-v2.0.1.png" width="800"/>
 </p>
 
 ## 🚀 Quick Start
@@ -51,7 +51,7 @@
 ### Docker Run (Recommended)
 
 ```bash
-# One command to start (uses 7B model by default if VRAM >= 16GB)
+# One command to start (uses 7B model by default)
 docker run -d --gpus all \
   -p 8021:8021 \
   -v ./models:/app/models \
@@ -62,7 +62,7 @@ docker run -d --gpus all \
 open http://localhost:8021
 ```
 
-The model (~3.5GB for 1.8B, ~14GB for 7B) will be automatically downloaded on first run.
+The Docker image (~43GB) includes all 4 models pre-downloaded. No external downloads needed!
 
 ### Docker Compose
 
@@ -114,6 +114,51 @@ nvidia-smi
 docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 ```
 
+## 📊 Performance Benchmark
+
+Tested on NVIDIA L40S GPU, translating English to Chinese:
+
+| Model | Short (61 chars) | Medium (530 chars) | Long (1.8K chars) | Extra Long (4.2K chars) |
+|-------|------------------|--------------------|--------------------|-------------------------|
+| **HY-MT 7B** | 0.4s | 4.4s | 17.7s | 43.0s |
+| HY-MT 1.8B | 0.4s | 3.6s | 14.0s | 32.3s |
+| HY-MT 1.8B FP8 | 1.1s | 10.8s | 38.1s | 92.9s |
+| HY-MT 7B FP8 | 2.9s | 28.5s | 115.6s | 274.1s |
+
+### ⚠️ Why are FP8 models slower?
+
+This is **counter-intuitive but technically correct**:
+
+| Comparison | Speed Change | Reason |
+|------------|--------------|--------|
+| 1.8B FP8 vs 1.8B | **2.7x slower** | Runtime decompression overhead |
+| 7B FP8 vs 7B | **6.4x slower** | More parameters = more decompression |
+
+**FP8 quantization is designed to save VRAM, not to speed up inference.** The model is stored in 8-bit format but needs to be decompressed to 16-bit for GPU computation at runtime. This decompression happens for every token generation.
+
+**When to use FP8:**
+- ✅ When VRAM is limited (< 16GB for 7B, < 6GB for 1.8B)
+- ❌ Not for speed optimization
+- ❌ Not for batch processing (speed loss accumulates)
+
+See [Benchmark Report](docs/BENCHMARK_REPORT.md) for detailed analysis.
+
+## 🔑 Key Optimization: Chunk Size
+
+**Critical finding**: Smaller chunk size = Better translation quality
+
+| Chunk Size | Quality | Notes |
+|-----------|---------|-------|
+| 500 chars | ❌ Poor | Mixed languages in output |
+| 300 chars | ⚠️ Fair | Some untranslated residue |
+| **150 chars** | ✅ Excellent | Complete, accurate translation |
+
+The service uses `MAX_CHUNK_LENGTH=150` by default for optimal quality.
+
+**Why?** HY-MT model tends to "slack off" on long inputs, only translating part of the content. Shorter chunks force the model to fully translate each segment.
+
+See [Optimization Guide](docs/OPTIMIZATION_GUIDE.md) for details.
+
 ## ⚙️ Configuration
 
 ### Environment Variables
@@ -121,7 +166,7 @@ docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 8021 | Service port |
-| `MODEL_NAME` | tencent/HY-MT1.5-1.8B | HuggingFace model name |
+| `MODEL_NAME` | tencent/HY-MT1.5-7B | HuggingFace model name |
 | `MODEL_PATH` | ./models | Local model cache path |
 | `GPU_IDLE_TIMEOUT` | 300 | Auto-release GPU after idle (seconds) |
 | `NVIDIA_VISIBLE_DEVICES` | auto | GPU ID (empty = auto select) |
@@ -155,7 +200,8 @@ Response:
 {
   "status": "success",
   "result": "你好，你好吗？",
-  "elapsed_ms": 1234,
+  "elapsed_ms": 358,
+  "model": "tencent/HY-MT1.5-7B",
   "chunks": 1
 }
 ```
@@ -184,6 +230,8 @@ curl -X POST "http://localhost:8021/api/translate" \
   }'
 ```
 
+Output: `苹果公司发布了苹果手机16`
+
 ### File Upload Translation
 
 ```bash
@@ -191,6 +239,14 @@ curl "http://localhost:8021/api/translate/file" \
   -F "file=@document.txt" \
   -F "target_lang=zh" \
   -F "stream=true"
+```
+
+### Switch Model
+
+```bash
+curl -X POST "http://localhost:8021/api/models/switch" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "tencent/HY-MT1.5-1.8B"}'
 ```
 
 ## 📚 API Endpoints
@@ -211,35 +267,6 @@ curl "http://localhost:8021/api/translate/file" \
 | `/health` | GET | Health check |
 | `/docs` | GET | Swagger API documentation |
 
-## 📊 Performance Benchmark
-
-Tested on NVIDIA L40S GPU, translating English to Chinese:
-
-| Model | Short (61 chars) | Medium (530 chars) | Long (1.8K chars) | Extra Long (4.2K chars) |
-|-------|------------------|--------------------|--------------------|-------------------------|
-| **HY-MT 7B** | 0.4s | 4.4s | 17.7s | 43.0s |
-| HY-MT 1.8B | 0.4s | 3.6s | 14.0s | 32.3s |
-| HY-MT 1.8B FP8 | 1.1s | 10.8s | 38.1s | 92.9s |
-| HY-MT 7B FP8 | 2.9s | 28.5s | 115.6s | 274.1s |
-
-> ⚠️ **Why are FP8 models slower?** FP8 quantization reduces memory usage (not speed). The model needs runtime decompression from 8-bit to 16-bit for each inference, which adds overhead. Use FP8 only when VRAM is limited.
-
-See [Benchmark Report](docs/BENCHMARK_REPORT.md) for detailed analysis.
-
-## 🔑 Key Optimization: Chunk Size
-
-**Critical finding**: Smaller chunk size = Better translation quality
-
-| Chunk Size | Quality | Notes |
-|-----------|---------|-------|
-| 500 chars | ❌ Poor | Mixed languages in output |
-| 300 chars | ⚠️ Fair | Some untranslated residue |
-| **150 chars** | ✅ Excellent | Complete, accurate translation |
-
-The service uses `MAX_CHUNK_LENGTH=150` by default for optimal quality.
-
-See [Optimization Guide](docs/OPTIMIZATION_GUIDE.md) for details.
-
 ## 🌍 Supported Languages
 
 | Language | Code | Language | Code | Language | Code |
@@ -256,7 +283,7 @@ And 17 more languages. See `/api/languages` for full list.
 
 ## 🛠️ Tech Stack
 
-- **Model**: [Tencent HY-MT1.5-1.8B](https://huggingface.co/tencent/HY-MT1.5-1.8B)
+- **Model**: [Tencent HY-MT1.5](https://huggingface.co/tencent/HY-MT1.5-1.8B) (1.8B & 7B)
 - **Backend**: FastAPI + Uvicorn
 - **Frontend**: Vanilla JS with Dark/Light Mode
 - **Container**: NVIDIA CUDA 12.4 base image
@@ -317,6 +344,12 @@ For AI assistants like Claude Desktop, add to MCP config:
 }
 ```
 
+Available MCP tools:
+- `translate` - Translate text
+- `list_languages` - Get supported languages
+- `list_models` - Get available models
+- `switch_model` - Switch translation model
+
 See [MCP_GUIDE.md](MCP_GUIDE.md) for details.
 
 ## 🐛 Troubleshooting
@@ -327,6 +360,7 @@ See [MCP_GUIDE.md](MCP_GUIDE.md) for details.
 | GPU out of memory | Use quantized model: `tencent/HY-MT1.5-1.8B-FP8` |
 | Container won't start | Check `nvidia-smi` and nvidia-docker installation |
 | Translation incomplete | Already optimized with chunk size 150 |
+| Container shows unhealthy | Wait 1-2 minutes for model loading |
 
 ## 📝 Changelog
 
