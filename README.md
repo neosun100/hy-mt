@@ -1,549 +1,337 @@
-
-<p align="left">
-    <a href="README_CN.md">中文</a>&nbsp ｜ English</a>
-</p>
-<br><br>
-
 <p align="center">
- <img src="imgs/hunyuanlogo.png" width="400"/> <br>
-</p><p></p>
-
-
-<p align="center">
-    🤗&nbsp;<a href="https://huggingface.co/collections/tencent/hy-mt15"><b>Hugging Face</b></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <img src="https://avatars.githubusercontent.com/u/109945100?s=200&v=4" width="16"/>&nbsp;<a href="https://modelscope.cn/collections/Tencent-Hunyuan/HY-MT15"><b>ModelScope</b></a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <img src="imgs/hunyuanlogo.png" width="400"/>
 </p>
 
 <p align="center">
-    🖥️&nbsp;<a href="https://hunyuan.tencent.com" style="color: red;"><b>Official Website</b></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    🕹️&nbsp;<a href="https://hunyuan.tencent.com/chat/HunyuanDefault?from=modelSquare&modelId=hunyuan-mt-1.8b"><b>Demo</b></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <b>English</b> | <a href="README_CN.md">简体中文</a> | <a href="README_TW.md">繁體中文</a> | <a href="README_JP.md">日本語</a>
 </p>
 
 <p align="center">
-    <a href="https://github.com/Tencent-Hunyuan/HY-MT"><b>Github</b></a>
+  <a href="https://hub.docker.com/r/neosun/hy-mt"><img src="https://img.shields.io/docker/pulls/neosun/hy-mt?style=flat-square&logo=docker" alt="Docker Pulls"></a>
+  <a href="https://github.com/neosun100/hy-mt/stargazers"><img src="https://img.shields.io/github/stars/neosun100/hy-mt?style=flat-square&logo=github" alt="Stars"></a>
+  <a href="https://github.com/neosun100/hy-mt/blob/main/License.txt"><img src="https://img.shields.io/badge/license-Tencent_Hunyuan-blue?style=flat-square" alt="License"></a>
+  <a href="https://huggingface.co/tencent/HY-MT1.5-1.8B"><img src="https://img.shields.io/badge/🤗-HuggingFace-yellow?style=flat-square" alt="HuggingFace"></a>
 </p>
 
+# HY-MT Translation Service
 
-## Model Introduction
+> 🚀 All-in-One Docker deployment for Tencent HunyuanMT 1.5 translation model with Web UI, REST API, and MCP Server support.
 
-Hunyuan Translation Model Version 1.5 includes a 1.8B translation model, HY-MT1.5-1.8B, and a 7B translation model, HY-MT1.5-7B. Both models focus on supporting mutual translation across 33 languages and incorporating 5 ethnic and dialect variations. Among them, HY-MT1.5-7B is an upgraded version of our WMT25 championship model, optimized for explanatory translation and mixed-language scenarios, with newly added support for terminology intervention, contextual translation, and formatted translation. Despite having less than one-third the parameters of HY-MT1.5-7B, HY-MT1.5-1.8B delivers translation performance comparable to its larger counterpart, achieving both high speed and high quality. After quantization, the 1.8B model can be deployed on edge devices and support real-time translation scenarios, making it widely applicable.
+## ✨ Features
 
-## Key Features and Advantages
+- 🌐 **38 Languages Support** - Chinese, English, Japanese, Korean, French, German, Spanish, and 31 more
+- 🎨 **Modern Web UI** - Dark/Light theme toggle, drag & drop file upload, real-time progress display
+- ⚡ **Streaming Translation** - Server-Sent Events (SSE) for real-time output, perfect for long texts
+- 🔧 **Full Parameter Control** - Temperature, Top-P, Top-K, repetition penalty adjustable
+- 📚 **Terminology Intervention** - Custom term mapping for domain-specific translations
+- 🤖 **MCP Server** - Model Context Protocol support for AI assistants (Claude, etc.)
+- 🐳 **One-Click Deployment** - All-in-One Docker image with model auto-download
+- 🔄 **Smart GPU Management** - Auto GPU selection, idle timeout, memory release
 
-- HY-MT1.5-1.8B achieves the industry-leading performance among models of the same size, surpassing most commercial translation APIs.
-- HY-MT1.5-1.8B supports deployment on edge devices and real-time translation scenarios, offering broad applicability.
-- HY-MT1.5-7B, compared to its September open-source version, has been optimized for annotated and mixed-language scenarios.
-- Both models support terminology intervention, contextual translation, and formatted translation.
+## 📸 Screenshot
 
-## Related News
-* 2025.12.30, we have open-sourced **HY-MT1.5-1.8B** and **HY-MT1.5-7B** on Hugging Face.
-* 2025.9.1, we have open-sourced  **Hunyuan-MT-7B** , **Hunyuan-MT-Chimera-7B** on Hugging Face.
-<br>
+<p align="center">
+  <img src="docs/images/ui-screenshot.png" width="800"/>
+</p>
 
+## 🚀 Quick Start
 
-## Performance
+### Docker Run (Recommended)
 
-<div align='center'>
-<img src="imgs/overall_performance.png" width = "100%" />
-</div>
-You can refer to our technical report for more experimental results and analysis.
+```bash
+# One command to start
+docker run -d --gpus all \
+  -p 8021:8021 \
+  -v ./models:/app/models \
+  --name hy-mt \
+  neosun/hy-mt:latest
 
-<a href=./HY_MT1_5_Technical_Report.pdf><b>Technical Report</b> </a>
-
-&nbsp;
-
-## Model Links
-| Model Name  | Description | Download |
-| ----------- | ----------- |-----------
-| HY-MT1.5-1.8B  | Hunyuan 1.8B translation model |🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-1.8B)|
-| HY-MT1.5-1.8B-FP8 | Hunyuan 1.8B translation model, fp8 quant    | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-1.8B-FP8)|
-| HY-MT1.5-1.8B-GPTQ-Int4 | Hunyuan 1.8B translation model, int4 quant    | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-1.8B-GPTQ-Int4)|
-| HY-MT1.5-1.8B-GGUF | Hunyuan 1.8B translation model, llama.cpp    | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF)|
-| HY-MT1.5-7B | Hunyuan 7B translation model    | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-7B)|
-| HY-MT1.5-7B-FP8 | Hunyuan 7B translation model, fp8 quant     | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-7B-FP8)|
-| HY-MT1.5-7B-GGUF | Hunyuan 7B translation model, llama.cpp    | 🤗 [Model](https://huggingface.co/tencent/HY-MT1.5-7B-GGUF)|
-
-## Prompts
-
-### Prompt Template for ZH<=>XX Translation.
----
-```
-将以下文本翻译为{target_language}，注意只需要输出翻译后的结果，不要额外解释：
-
-{source_text}
-```
----
-
-### Prompt Template for XX<=>XX Translation, excluding ZH<=>XX.
----
-```
-Translate the following segment into {target_language}, without additional explanation.
-
-{source_text}
-```
----
-
-### Prompt Template for terminology intervention.
----
-```
-参考下面的翻译：
-{source_term} 翻译成 {target_term}
-
-将以下文本翻译为{target_language}，注意只需要输出翻译后的结果，不要额外解释：
-{source_text}
-```
----
-
-### Prompt Template for contextual translation.
----
-```
-{context}
-参考上面的信息，把下面的文本翻译成{target_language}，注意不需要翻译上文，也不要额外解释：
-{source_text}
-
-```
----
-
-###  Prompt Template for formatted translation.
----
-```
-将以下<source></source>之间的文本翻译为中文，注意只需要输出翻译后的结果，不要额外解释，原文中的<sn></sn>标签表示标签内文本包含格式信息，需要在译文中相应的位置尽量保留该标签。输出格式为：<target>str</target>
-
-<source>{src_text_with_format}</source>
-```
----
-
-&nbsp;
-
-### Use with transformers
-First, please install transformers, recommends v4.56.0
-```SHELL
-pip install transformers==4.56.0
+# Access Web UI
+open http://localhost:8021
 ```
 
-*!!! If you want to load fp8 model with transformers, you need to change the name"ignored_layers" in config.json to "ignore" and upgrade the compressed-tensors to compressed-tensors-0.11.0.*
+The model (~3.5GB) will be automatically downloaded on first run.
 
-The following code snippet shows how to use the transformers library to load and apply the model.
+### Docker Compose
 
-we use tencent/HY-MT1.5-1.8B for example
+Create `docker-compose.yml`:
 
-```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import os
-
-model_name_or_path = "tencent/HY-MT1.5-1.8B"
-
-tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
-model = AutoModelForCausalLM.from_pretrained(model_name_or_path, device_map="auto")  # You may want to use bfloat16 and/or move to GPU here
-messages = [
-    {"role": "user", "content": "Translate the following segment into Chinese, without additional explanation.\n\nIt’s on the house."},
-]
-tokenized_chat = tokenizer.apply_chat_template(
-    messages,
-    tokenize=True,
-    add_generation_prompt=False,
-    return_tensors="pt"
-)
-
-outputs = model.generate(tokenized_chat.to(model.device), max_new_tokens=2048)
-output_text = tokenizer.decode(outputs[0])
+```yaml
+services:
+  hy-mt:
+    image: neosun/hy-mt:latest
+    container_name: hy-mt
+    ports:
+      - "8021:8021"
+    environment:
+      - MODEL_NAME=tencent/HY-MT1.5-1.8B
+      - GPU_IDLE_TIMEOUT=300
+      - HF_ENDPOINT=https://huggingface.co  # Use https://hf-mirror.com for China
+    volumes:
+      - ./models:/app/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
 ```
 
-We recommend using the following set of parameters for inference. Note that our model does not have the default system_prompt.
+```bash
+docker compose up -d
+```
+
+## 📋 Requirements
+
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| GPU | NVIDIA GPU with 6GB+ VRAM | 8GB+ VRAM |
+| CUDA | 11.8+ | 12.4+ |
+| Docker | 20.10+ | 24.0+ |
+| nvidia-docker | Required | - |
+
+### Verify GPU Support
+
+```bash
+# Check NVIDIA driver
+nvidia-smi
+
+# Check Docker GPU support
+docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 8021 | Service port |
+| `MODEL_NAME` | tencent/HY-MT1.5-1.8B | HuggingFace model name |
+| `MODEL_PATH` | ./models | Local model cache path |
+| `GPU_IDLE_TIMEOUT` | 300 | Auto-release GPU after idle (seconds) |
+| `NVIDIA_VISIBLE_DEVICES` | auto | GPU ID (empty = auto select) |
+| `HF_ENDPOINT` | https://huggingface.co | HuggingFace mirror URL |
+
+### Using .env File
+
+```bash
+# Copy example config
+cp .env.example .env
+
+# Edit as needed
+vim .env
+```
+
+## 📖 API Usage
+
+### Basic Translation
+
+```bash
+curl -X POST "http://localhost:8021/api/translate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Hello, how are you?",
+    "target_lang": "zh"
+  }'
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "result": "你好，你好吗？",
+  "elapsed_ms": 1234,
+  "chunks": 1
+}
+```
+
+### Streaming Translation (SSE)
+
+```bash
+curl -N "http://localhost:8021/api/translate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Long article to translate...",
+    "target_lang": "en",
+    "stream": true
+  }'
+```
+
+### With Terminology Intervention
+
+```bash
+curl -X POST "http://localhost:8021/api/translate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Apple released iPhone 16",
+    "target_lang": "zh",
+    "terms": {"Apple": "苹果公司", "iPhone": "苹果手机"}
+  }'
+```
+
+### File Upload Translation
+
+```bash
+curl "http://localhost:8021/api/translate/file" \
+  -F "file=@document.txt" \
+  -F "target_lang=zh" \
+  -F "stream=true"
+```
+
+## 📚 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Web UI |
+| `/api/translate` | POST | Translate text (supports streaming) |
+| `/api/translate/file` | POST | Upload and translate file |
+| `/api/translate/batch` | POST | Batch translation |
+| `/api/languages` | GET | List supported languages |
+| `/api/gpu/status` | GET | GPU status and memory info |
+| `/api/gpu/offload` | POST | Release GPU memory |
+| `/health` | GET | Health check |
+| `/docs` | GET | Swagger API documentation |
+
+## 🔑 Key Optimization: Chunk Size
+
+**Critical finding**: Smaller chunk size = Better translation quality
+
+| Chunk Size | Quality | Notes |
+|-----------|---------|-------|
+| 500 chars | ❌ Poor | Mixed languages in output |
+| 300 chars | ⚠️ Fair | Some untranslated residue |
+| **150 chars** | ✅ Excellent | Complete, accurate translation |
+
+The service uses `MAX_CHUNK_LENGTH=150` by default for optimal quality.
+
+See [Optimization Guide](docs/OPTIMIZATION_GUIDE.md) for details.
+
+## 🌍 Supported Languages
+
+| Language | Code | Language | Code | Language | Code |
+|----------|------|----------|------|----------|------|
+| Chinese | zh | English | en | Japanese | ja |
+| Korean | ko | French | fr | German | de |
+| Spanish | es | Portuguese | pt | Russian | ru |
+| Arabic | ar | Thai | th | Vietnamese | vi |
+| Italian | it | Dutch | nl | Polish | pl |
+| Turkish | tr | Indonesian | id | Malay | ms |
+| Hindi | hi | Traditional Chinese | zh-Hant | Cantonese | yue |
+
+And 17 more languages. See `/api/languages` for full list.
+
+## 🛠️ Tech Stack
+
+- **Model**: [Tencent HY-MT1.5-1.8B](https://huggingface.co/tencent/HY-MT1.5-1.8B)
+- **Backend**: FastAPI + Uvicorn
+- **Frontend**: Vanilla JS with Dark/Light Mode
+- **Container**: NVIDIA CUDA 12.4 base image
+- **Streaming**: Server-Sent Events (SSE)
+- **MCP**: Model Context Protocol for AI integration
+
+## 📁 Project Structure
+
+```
+hy-mt/
+├── app_fastapi.py      # Main FastAPI application
+├── mcp_server.py       # MCP Server for AI assistants
+├── templates/
+│   └── index.html      # Web UI (Dark/Light theme)
+├── docs/
+│   ├── OPTIMIZATION_GUIDE.md  # Long text optimization guide
+│   └── QUICK_REFERENCE.md     # API quick reference
+├── Dockerfile          # All-in-One Docker build
+├── docker-compose.yml  # Docker Compose config
+├── start.sh           # Quick start script
+├── test_api.sh        # API test script
+└── .env.example       # Environment config template
+```
+
+## 🔧 Advanced Usage
+
+### Manual Start (Development)
+
+```bash
+# Clone repository
+git clone https://github.com/neosun100/hy-mt.git
+cd hy-mt
+
+# Install dependencies
+pip install torch transformers accelerate fastapi uvicorn
+
+# Run
+python -m uvicorn app_fastapi:app --host 0.0.0.0 --port 8021
+```
+
+### MCP Server Integration
+
+For AI assistants like Claude Desktop, add to MCP config:
 
 ```json
 {
-  "top_k": 20,
-  "top_p": 0.6,
-  "repetition_penalty": 1.05,
-  "temperature": 0.7
-}
-```
-
-&nbsp;
-
-Supported languages:
-| Languages         | Abbr.   | Chinese Names   |
-|-------------------|---------|-----------------|
-| Chinese           | zh      | 中文            |
-| English           | en      | 英语            |
-| French            | fr      | 法语            |
-| Portuguese        | pt      | 葡萄牙语        |
-| Spanish           | es      | 西班牙语        |
-| Japanese          | ja      | 日语            |
-| Turkish           | tr      | 土耳其语        |
-| Russian           | ru      | 俄语            |
-| Arabic            | ar      | 阿拉伯语        |
-| Korean            | ko      | 韩语            |
-| Thai              | th      | 泰语            |
-| Italian           | it      | 意大利语        |
-| German            | de      | 德语            |
-| Vietnamese        | vi      | 越南语          |
-| Malay             | ms      | 马来语          |
-| Indonesian        | id      | 印尼语          |
-| Filipino          | tl      | 菲律宾语        |
-| Hindi             | hi      | 印地语          |
-| Traditional Chinese | zh-Hant| 繁体中文        |
-| Polish            | pl      | 波兰语          |
-| Czech             | cs      | 捷克语          |
-| Dutch             | nl      | 荷兰语          |
-| Khmer             | km      | 高棉语          |
-| Burmese           | my      | 缅甸语          |
-| Persian           | fa      | 波斯语          |
-| Gujarati          | gu      | 古吉拉特语      |
-| Urdu              | ur      | 乌尔都语        |
-| Telugu            | te      | 泰卢固语        |
-| Marathi           | mr      | 马拉地语        |
-| Hebrew            | he      | 希伯来语        |
-| Bengali           | bn      | 孟加拉语        |
-| Tamil             | ta      | 泰米尔语        |
-| Ukrainian         | uk      | 乌克兰语        |
-| Tibetan           | bo      | 藏语            |
-| Kazakh            | kk      | 哈萨克语        |
-| Mongolian         | mn      | 蒙古语          |
-| Uyghur            | ug      | 维吾尔语        |
-| Cantonese         | yue     | 粤语            |
-
-
-### Training Data Format
-
-If you need to fine-tune our Instruct model, we recommend processing the data into the following format.
-
-```python
-
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Why is seawater salty?" },
-    {"role": "assistant", "content": "Seawater is primarily saline due to dissolved salts and minerals. These substances come from the chemical materials in rocks and soil on the Earth's surface, which are carried into the ocean over time. When seawater evaporates, the water vapor leaves, but the salts and minerals remain, making the seawater saltier. Therefore, the salinity of seawater is determined by the amount of salts and minerals it contains."}
-]
-
-from transformers import AutoTokenizer
-tokenizer = AutoTokenizer.from_pretrained("your_tokenizer_path", trust_remote_code=True)
-train_ids = tokenizer.apply_chat_template(messages)
-```
-
-&nbsp;
-
-### Train with LLaMA-Factory
-
-In the following chapter, we will introduce how to use `LLaMA-Factory` to fine-tune the `Hunyuan` model.
-
-#### Prerequisites
-
-Verify installation of the following dependencies:
-- **LLaMA-Factory**: Follow [official installation guide](https://github.com/hiyouga/LLaMA-Factory)
-- **DeepSpeed** (optional): Follow [official installation guide](https://github.com/deepspeedai/DeepSpeed#installation)
-- **Transformer Library**: Use the companion branch (Hunyuan-submitted code is pending review)
-    ```
-    pip install git+https://github.com/huggingface/transformers@4970b23cedaf745f963779b4eae68da281e8c6ca
-    ```
-
-#### Data preparation
-
-We need to prepare a custom dataset:
-1. Organize your data in `json` format and place it in the `data` directory in `LLaMA-Factory`. The current implementation uses the `sharegpt` dataset format, which requires the following structure:
-```
-[
-  {
-    "messages": [
-      {
-        "role": "system",
-        "content": "System prompt (optional)"
-      },
-      {
-        "role": "user",
-        "content": "Human instruction"
-      },
-      {
-        "role": "assistant",
-        "content": "Model response"
+  "mcpServers": {
+    "hy-mt": {
+      "command": "python",
+      "args": ["/path/to/hy-mt/mcp_server.py"],
+      "env": {
+        "HY_MT_API": "http://localhost:8021"
       }
-    ]
-  }
-]
-```
-Refer to the [Data Format](#training-data-format) section mentioned earlier for details.
-
-2. Define your dataset in the data/dataset_info.json file using the following format:
-```
-"dataset_name": {
-  "file_name": "dataset.json",
-  "formatting": "sharegpt",
-  "columns": {
-    "messages": "messages"
-  },
-  "tags": {
-    "role_tag": "role",
-    "content_tag": "content",
-    "user_tag": "user",
-    "assistant_tag": "assistant",
-    "system_tag": "system"
-  }
-}
-```
-
-#### Training execution
-
-1. Copy all files from the `llama_factory_support/example_configs` directory to the `example/hunyuan` directory in `LLaMA-Factory`.
-2. Modify the model path and dataset name in the configuration file `hunyuan_full.yaml`. Adjust other configurations as needed:
-```
-### model
-model_name_or_path: [!!!add the model path here!!!]
-
-### dataset
-dataset: [!!!add the dataset name here!!!]
-```
-3. Execute training commands:
-    *​​Single-node training​​
-    Note: Set the environment variable DISABLE_VERSION_CHECK to 1 to avoid version conflicts.
-    ```
-    export DISABLE_VERSION_CHECK=1
-    llamafactory-cli train examples/hunyuan/hunyuan_full.yaml
-    ```
-    *Multi-node training​​
-    Execute the following command on each node. Configure NNODES, NODE_RANK, MASTER_ADDR, and MASTER_PORT according to your environment:
-    ```
-    export DISABLE_VERSION_CHECK=1
-    FORCE_TORCHRUN=1 NNODES=${NNODES} NODE_RANK=${NODE_RANK} MASTER_ADDR=${MASTER_ADDR} MASTER_PORT=${MASTER_PORT} \
-    llamafactory-cli train examples/hunyuan/hunyuan_full.yaml
-    ```
-
-&nbsp;
-
-
-## Quantization Compression
-We used our own [AngelSlim](https://github.com/tencent/AngelSlim) compression tool to produce FP8 and INT4 quantization models. `AngelSlim` is a toolset dedicated to creating a more user-friendly, comprehensive and efficient model compression solution.
-
-### FP8 Quantization
-We use FP8-static quantization, FP8 quantization adopts 8-bit floating point format, through a small amount of calibration data (without training) to pre-determine the quantization scale, the model weights and activation values will be converted to FP8 format, to improve the inference efficiency and reduce the deployment threshold. We you can use AngelSlim quantization, you can also directly download our quantization completed open source model to use [AngelSlim](https://huggingface.co/AngelSlim).
-
-
-## Deployment
-
-For deployment, you can use frameworks such as **TensorRT-LLM**, **vLLM**, or **SGLang** to serve the model and create an OpenAI-compatible API endpoint.
-
-image: https://hub.docker.com/r/hunyuaninfer/hunyuan-7B/tags
-
-
-### TensorRT-LLM
-
-#### Docker Image
-
-We provide a pre-built Docker image based on the latest version of TensorRT-LLM.
-
-We use tencent/Hunyuan-7B-MT for example
-- To get started:
-
-```
-docker pull docker.cnb.cool/tencent/hunyuan/hunyuan-7b:hunyuan-7b-trtllm
-```
-```
-docker run --privileged --user root --name hunyuanLLM_infer --rm -it --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 --gpus=all hunyuaninfer/hunyuan-7b:hunyuan-7b-trtllm
-```
-
-- Prepare Configuration file:
-
-```
-cat >/path/to/extra-llm-api-config.yml <<EOF
-use_cuda_graph: true
-cuda_graph_padding_enabled: true
-cuda_graph_batch_sizes:
-- 1
-- 2
-- 4
-- 8
-- 16
-- 32
-print_iter_log: true
-EOF
-```
-
-
-- Start the API server:
-
-
-```
-trtllm-serve \
-  /path/to/HunYuan-7b \
-  --host localhost \
-  --port 8000 \
-  --backend pytorch \
-  --max_batch_size 32 \
-  --max_num_tokens 16384 \
-  --tp_size 2 \
-  --kv_cache_free_gpu_memory_fraction 0.6 \
-  --trust_remote_code \
-  --extra_llm_api_options /path/to/extra-llm-api-config.yml
-```
-
-
-### vllm
-
-#### Start
-Please use vLLM version v0.10.0 or higher for inference.
-
-First, please install transformers. We will merge it into the main branch later.
-```SHELL
-pip install git+https://github.com/huggingface/transformers@4970b23cedaf745f963779b4eae68da281e8c6ca
-```
-
-We use tencent/Hunyuan-7B-MT for example
-- Download Model file:
-  - Huggingface:  will download automicly by vllm.
-  - ModelScope: `modelscope download --model Tencent-Hunyuan/Hunyuan-7B-MT`
-
-- model download by huggingface:
-```shell
-export MODEL_PATH=tencent/Hunyuan-7B-MT
-```
-
-- model downloaded by modelscope:
-```shell
-export MODEL_PATH=/root/.cache/modelscope/hub/models/Tencent-Hunyuan/Hunyuan-7B-MT/
-```
-
-- Start the API server:
-
-```shell
-python3 -m vllm.entrypoints.openai.api_server \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --trust-remote-code \
-    --model ${MODEL_PATH} \
-    --tensor-parallel-size 1 \
-    --dtype bfloat16 \
-    --quantization experts_int8 \
-    --served-model-name hunyuan \
-    2>&1 | tee log_server.txt
-```
-- After running service script successfully, run the request script
-```shell
-curl http://0.0.0.0:8000/v1/chat/completions -H 'Content-Type: application/json' -d '{
-"model": "hunyuan",
-"messages": [
-    {
-        "role": "system",
-        "content": [{"type": "text", "text": "You are a helpful assistant."}]
-    },
-    {
-        "role": "user",
-        "content": [{"type": "text", "text": "请按面积大小对四大洋进行排序，并给出面积最小的洋是哪一个？直接输出结果。"}]
     }
-],
-"max_tokens": 2048,
-"temperature":0.7,
-"top_p": 0.6,
-"top_k": 20,
-"repetition_penalty": 1.05,
-"stop_token_ids": [127960]
-}'
-```
-#### Quantitative model deployment
-This section describes the process of deploying a post-quantization model using vLLM.
-
-Default server in BF16.
-
-##### Int8 quantitative model deployment
-Deploying the Int8-weight-only version of the HunYuan-7B model only requires setting the environment variables
-
-Next we start the Int8 service. Run:
-```shell
-python3 -m vllm.entrypoints.openai.api_server \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --trust-remote-code \
-    --model ${MODEL_PATH} \
-    --tensor-parallel-size 1 \
-    --dtype bfloat16 \
-    --served-model-name hunyuan \
-    --quantization experts_int8 \
-    2>&1 | tee log_server.txt
-```
-
-
-##### Int4 quantitative model deployment
-Deploying the Int4-weight-only version of the HunYuan-7B model only requires setting the environment variables , using the GPTQ method
-```shell
-export MODEL_PATH=PATH_TO_INT4_MODEL
-```
-Next we start the Int4 service. Run
-```shell
-python3 -m vllm.entrypoints.openai.api_server \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --trust-remote-code \
-    --model ${MODEL_PATH} \
-    --tensor-parallel-size 1 \
-    --dtype bfloat16 \
-    --served-model-name hunyuan \
-    --quantization gptq_marlin \
-    2>&1 | tee log_server.txt
-```
-
-##### FP8 quantitative model deployment
-Deploying the W8A8C8 version of the HunYuan-7B model only requires setting the environment variables
-
-
-Next we start the FP8 service. Run
-```shell
-python3 -m vllm.entrypoints.openai.api_server \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --trust-remote-code \
-    --model ${MODEL_PATH} \
-    --tensor-parallel-size 1 \
-    --dtype bfloat16 \
-    --served-model-name hunyuan \
-    --kv-cache-dtype fp8 \
-    2>&1 | tee log_server.txt
-```
-
-
-
-
-### SGLang
-
-#### Docker Image
-
-We also provide a pre-built Docker image based on the latest version of SGLang.
-
-We use tencent/Hunyuan-7B-MT for example
-
-To get started:
-
-- Pull the Docker image
-
-```
-docker pull lmsysorg/sglang:latest
-```
-
-- Start the API server:
-
-```
-docker run --entrypoint="python3" --gpus all \
-    --shm-size 32g \
-    -p 30000:30000 \
-    --ulimit nproc=10000 \
-    --privileged \
-    --ipc=host \
-     lmsysorg/sglang:latest \
-    -m sglang.launch_server --model-path hunyuan/huanyuan_7B --tp 4 --trust-remote-code --host 0.0.0.0 --port 30000
-```
-
-Citing HY-MT1.5:
-
-```bibtex
-@misc{hy-mt1.5,
-      title={HY-MT1.5 Technical Report}, 
-      author={Mao Zheng and Zheng Li and Tao Chen and Mingyang Song and Di Wang},
-      year={2025},
-      eprint={2512.24092},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2512.24092}, 
+  }
 }
 ```
 
-## Contact Us
+See [MCP_GUIDE.md](MCP_GUIDE.md) for details.
 
-If you would like to leave a message for our R&D and product teams, Welcome to contact our open-source team . You can also contact us via email (hunyuan_opensource@tencent.com).
+## 🐛 Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Model download slow | Set `HF_ENDPOINT=https://hf-mirror.com` (China mirror) |
+| GPU out of memory | Use quantized model: `tencent/HY-MT1.5-1.8B-FP8` |
+| Container won't start | Check `nvidia-smi` and nvidia-docker installation |
+| Translation incomplete | Already optimized with chunk size 150 |
+
+## 📝 Changelog
+
+### v1.0.0 (2026-01-03)
+- 🎉 Initial release
+- ✨ All-in-One Docker image
+- ⚡ Streaming translation with SSE
+- 🎨 Dark/Light theme Web UI
+- 🔧 Long text optimization (chunk size 150)
+- 🤖 MCP Server support
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is based on [Tencent HunyuanMT](https://github.com/Tencent-Hunyuan/HY-MT). See [License.txt](License.txt) for details.
+
+## 🙏 Acknowledgments
+
+- [Tencent Hunyuan](https://github.com/Tencent-Hunyuan/HY-MT) - Original HY-MT model
+- [HuggingFace](https://huggingface.co/tencent/HY-MT1.5-1.8B) - Model hosting
+
+---
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=neosun100/hy-mt&type=Date)](https://star-history.com/#neosun100/hy-mt)
+
+## 📱 Follow Us
+
+<p align="center">
+  <img src="https://img.aws.xin/uPic/扫码_搜索联合传播样式-标准色版.png" width="300"/>
+</p>

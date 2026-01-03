@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HY-MT 翻译服务</title>
+    <style>
+        :root { --bg: #f5f5f5; --card: #fff; --text: #333; --border: #ddd; --primary: #4a90d9; --success: #52c41a; }
+        .dark { --bg: #1a1a2e; --card: #16213e; --text: #eee; --border: #333; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; transition: all 0.3s; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        h1 { font-size: 1.5rem; }
+        .controls { display: flex; gap: 10px; }
+        select, button, input, textarea { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font-size: 14px; }
+        button { cursor: pointer; background: var(--primary); color: #fff; border: none; }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .main { grid-template-columns: 1fr; } }
+        .panel { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .panel h3 { margin-bottom: 15px; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        textarea { width: 100%; height: 200px; resize: vertical; font-size: 16px; line-height: 1.6; }
+        .lang-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .lang-row select { flex: 1; }
+        .swap-btn { background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 8px 15px; }
+        .actions { display: flex; gap: 10px; margin-top: 15px; }
+        .actions button { flex: 1; padding: 12px; font-size: 16px; }
+        .btn-stream { background: #28a745; }
+        .stats { font-size: 12px; color: #888; margin-top: 10px; padding: 10px; background: var(--bg); border-radius: 6px; }
+        .stats span { margin-right: 15px; }
+        .stats .highlight { color: var(--primary); font-weight: bold; }
+        details { margin-top: 15px; }
+        summary { cursor: pointer; color: var(--primary); font-size: 14px; }
+        .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
+        .param label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+        .param input { width: 100%; }
+        .param input[type="range"] { padding: 0; }
+        .param .value { font-size: 11px; color: var(--primary); float: right; }
+        .terms { margin-top: 12px; }
+        .term-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .term-row input { flex: 1; padding: 6px 10px; }
+        .term-row button { padding: 6px 12px; font-size: 12px; }
+        .gpu-bar { margin-top: 20px; padding: 15px; background: var(--card); border-radius: 8px; }
+        .gpu-bar h4 { font-size: 14px; margin-bottom: 10px; }
+        .gpu-info { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; }
+        .gpu-info span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.on { background: var(--success); }
+        .dot.off { background: #999; }
+        #loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+        .spinner { border: 3px solid #333; border-top-color: var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .copy-btn { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 4px 10px; font-size: 12px; }
+        .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin: 10px 0; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; background: var(--primary); transition: width 0.3s; width: 0%; }
+        .file-upload { border: 2px dashed var(--border); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; margin-bottom: 10px; font-size: 13px; }
+        .file-upload:hover { border-color: var(--primary); }
+        .file-upload.dragover { border-color: var(--primary); background: rgba(74,144,217,0.1); }
+        .file-upload input { display: none; }
+        .chunk-item { padding: 8px; margin: 4px 0; background: var(--bg); border-left: 3px solid var(--primary); border-radius: 0 4px 4px 0; font-size: 14px; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌐 HY-MT 翻译服务</h1>
+            <div class="controls">
+                <button onclick="toggleTheme()" title="切换主题">🌓</button>
+                <a href="/docs" target="_blank"><button type="button">📚 API文档</button></a>
+            </div>
+        </header>
+
+        <div class="main">
+            <div class="panel">
+                <h3>源文本 <button class="copy-btn" onclick="copyText('source')">复制</button></h3>
+                
+                <div class="file-upload" id="dropZone">
+                    📁 拖拽文本文件或点击上传
+                    <input type="file" id="fileInput" accept=".txt,.md,.text">
+                </div>
+                
+                <div class="lang-row">
+                    <select id="source-lang"></select>
+                    <button class="swap-btn" onclick="swapLang()">⇄</button>
+                    <select id="target-lang"></select>
+                </div>
+                <textarea id="source" placeholder="输入要翻译的文本..."></textarea>
+                
+                <details>
+                    <summary>⚙️ 高级参数</summary>
+                    <div class="params">
+                        <div class="param">
+                            <label>Temperature <span class="value" id="temp-val">0.7</span></label>
+                            <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7" oninput="updateVal('temp-val', this.value)">
+                        </div>
+                        <div class="param">
+                            <label>Top-P <span class="value" id="topp-val">0.6</span></label>
+                            <input type="range" id="top_p" min="0" max="1" step="0.1" value="0.6" oninput="updateVal('topp-val', this.value)">
+                        </div>
+                        <div class="param">
+                            <label>Top-K <span class="value" id="topk-val">20</span></label>
+                            <input type="range" id="top_k" min="1" max="100" step="1" value="20" oninput="updateVal('topk-val', this.value)">
+                        </div>
+                        <div class="param">
+                            <label>重复惩罚 <span class="value" id="rep-val">1.1</span></label>
+                            <input type="range" id="repetition_penalty" min="1" max="2" step="0.05" value="1.1" oninput="updateVal('rep-val', this.value)">
+                        </div>
+                    </div>
+                    <div class="terms">
+                        <label style="font-size:13px;">术语干预 (可选)</label>
+                        <div id="terms-list"></div>
+                        <button onclick="addTerm()" style="margin-top:8px;padding:6px 12px;font-size:12px;">+ 添加术语</button>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <label style="font-size:13px;">上下文参考 (可选)</label>
+                        <textarea id="context" style="height:60px;margin-top:6px;" placeholder="提供上下文帮助提高翻译质量..."></textarea>
+                    </div>
+                </details>
+                
+                <div class="actions">
+                    <button onclick="doTranslate(false)" id="translate-btn">🚀 翻译</button>
+                    <button onclick="doTranslate(true)" id="stream-btn" class="btn-stream">⚡ 流式</button>
+                    <button onclick="clearAll()" style="background:#666;flex:0.5;">清空</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>翻译结果 <button class="copy-btn" onclick="copyText('result')">复制</button></h3>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <textarea id="result" readonly placeholder="翻译结果将显示在这里..."></textarea>
+                <div id="streamOutput" style="display:none;max-height:200px;overflow-y:auto;"></div>
+                <div class="stats" id="stats" style="display:none;">
+                    <span>⏱️ 耗时: <span class="highlight" id="stat-time">-</span></span>
+                    <span>📝 输入: <span id="stat-input">-</span> 字符</span>
+                    <span>📄 输出: <span id="stat-output">-</span> 字符</span>
+                    <span>📦 分段: <span id="stat-chunks">-</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="gpu-bar">
+            <h4>🖥️ GPU 状态</h4>
+            <div class="gpu-info">
+                <span><span class="dot" id="gpu-dot"></span> <span id="gpu-status">检查中...</span></span>
+                <span>💾 显存: <span id="gpu-mem">-</span></span>
+                <span>⏰ 空闲: <span id="gpu-idle">-</span></span>
+                <span>🤖 模型: <span id="gpu-model">-</span></span>
+                <button onclick="releaseGPU()" style="padding:4px 10px;font-size:12px;">释放显存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading"><div class="spinner"></div></div>
+
+    <script>
+        const LANGS = {};
+        
+        async function init() {
+            const langs = await fetch('/api/languages').then(r => r.json());
+            Object.assign(LANGS, langs);
+            
+            const srcSel = document.getElementById('source-lang');
+            const tgtSel = document.getElementById('target-lang');
+            srcSel.innerHTML = '<option value="">自动检测</option>';
+            tgtSel.innerHTML = '';
+            
+            for (const [code, name] of Object.entries(langs)) {
+                srcSel.innerHTML += `<option value="${code}">${name} (${code})</option>`;
+                tgtSel.innerHTML += `<option value="${code}">${name} (${code})</option>`;
+            }
+            tgtSel.value = 'zh';
+            
+            updateGPU();
+            setInterval(updateGPU, 10000);
+            
+            if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+            
+            // 文件上传
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            dropZone.onclick = () => fileInput.click();
+            dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+            dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+            dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); };
+            fileInput.onchange = () => handleFile(fileInput.files[0]);
+        }
+        
+        function handleFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('source').value = e.target.result;
+                document.getElementById('dropZone').innerHTML = `📄 ${file.name} (${(file.size/1024).toFixed(1)}KB)<input type="file" id="fileInput" accept=".txt,.md,.text">`;
+            };
+            reader.readAsText(file);
+        }
+        
+        async function updateGPU() {
+            try {
+                const data = await fetch('/api/gpu/status').then(r => r.json());
+                document.getElementById('gpu-dot').className = 'dot ' + (data.loaded ? 'on' : 'off');
+                document.getElementById('gpu-status').textContent = data.loaded ? '已加载' : '未加载';
+                document.getElementById('gpu-mem').textContent = `${data.gpu_free_mb} / ${data.gpu_total_mb} MB`;
+                document.getElementById('gpu-idle').textContent = data.idle_seconds !== null ? `${data.idle_seconds}秒` : '-';
+                document.getElementById('gpu-model').textContent = data.model_name || '-';
+            } catch(e) {}
+        }
+        
+        async function doTranslate(stream = false) {
+            const text = document.getElementById('source').value.trim();
+            if (!text) return alert('请输入要翻译的文本');
+            
+            const btn = document.getElementById(stream ? 'stream-btn' : 'translate-btn');
+            const otherBtn = document.getElementById(stream ? 'translate-btn' : 'stream-btn');
+            btn.disabled = otherBtn.disabled = true;
+            btn.textContent = '翻译中...';
+            
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const streamOutput = document.getElementById('streamOutput');
+            const resultArea = document.getElementById('result');
+            
+            progressBar.style.display = stream ? 'block' : 'none';
+            progressFill.style.width = '0%';
+            streamOutput.style.display = stream ? 'block' : 'none';
+            streamOutput.innerHTML = '';
+            resultArea.style.display = stream ? 'none' : 'block';
+            
+            if (!stream) document.getElementById('loading').style.display = 'flex';
+            
+            const terms = {};
+            document.querySelectorAll('.term-row').forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                if (inputs[0].value && inputs[1].value) terms[inputs[0].value] = inputs[1].value;
+            });
+            
+            const body = {
+                text,
+                target_lang: document.getElementById('target-lang').value,
+                source_lang: document.getElementById('source-lang').value || null,
+                temperature: parseFloat(document.getElementById('temperature').value),
+                top_p: parseFloat(document.getElementById('top_p').value),
+                top_k: parseInt(document.getElementById('top_k').value),
+                repetition_penalty: parseFloat(document.getElementById('repetition_penalty').value),
+                context: document.getElementById('context').value || null,
+                terms: Object.keys(terms).length > 0 ? terms : null,
+                stream
+            };
+            
+            try {
+                if (stream) {
+                    // 流式翻译
+                    const response = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body)
+                    });
+                    
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let results = [];
+                    let totalChunks = 1;
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const lines = decoder.decode(value).split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    if (data.event === 'start') {
+                                        totalChunks = data.total_chunks;
+                                        document.getElementById('stat-input').textContent = data.input_length;
+                                        document.getElementById('stat-chunks').textContent = totalChunks;
+                                    } else if (data.event === 'chunk') {
+                                        results.push(data.result);
+                                        progressFill.style.width = (data.chunk / data.total * 100) + '%';
+                                        const div = document.createElement('div');
+                                        div.className = 'chunk-item';
+                                        div.innerHTML = `<small style="color:#888">第${data.chunk}段 (${data.elapsed_ms}ms)</small><br>${data.result}`;
+                                        streamOutput.appendChild(div);
+                                        streamOutput.scrollTop = streamOutput.scrollHeight;
+                                    } else if (data.event === 'done') {
+                                        // 完成后隐藏分段，显示合并结果
+                                        streamOutput.style.display = 'none';
+                                        resultArea.style.display = 'block';
+                                        document.getElementById('stat-time').textContent = data.elapsed_ms + ' ms';
+                                        document.getElementById('stat-output').textContent = data.output_length;
+                                        document.getElementById('stats').style.display = 'block';
+                                        resultArea.value = results.join('\n');
+                                    }
+                                } catch(e) {}
+                            }
+                        }
+                    }
+                } else {
+                    // 普通翻译
+                    const res = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body)
+                    });
+                    const data = await res.json();
+                    
+                    if (data.status === 'success') {
+                        resultArea.value = data.result;
+                        document.getElementById('stats').style.display = 'block';
+                        document.getElementById('stat-time').textContent = data.elapsed_ms + ' ms';
+                        document.getElementById('stat-input').textContent = data.input_length;
+                        document.getElementById('stat-output').textContent = data.output_length;
+                        document.getElementById('stat-chunks').textContent = data.chunks;
+                    } else {
+                        alert('翻译失败: ' + (data.detail || data.error));
+                    }
+                }
+            } catch(e) {
+                alert('请求失败: ' + e.message);
+            } finally {
+                btn.disabled = otherBtn.disabled = false;
+                btn.textContent = stream ? '⚡ 流式' : '🚀 翻译';
+                document.getElementById('loading').style.display = 'none';
+                updateGPU();
+            }
+        }
+        
+        function swapLang() {
+            const src = document.getElementById('source-lang');
+            const tgt = document.getElementById('target-lang');
+            if (src.value) [src.value, tgt.value] = [tgt.value, src.value];
+            const srcText = document.getElementById('source').value;
+            const tgtText = document.getElementById('result').value;
+            if (tgtText) {
+                document.getElementById('source').value = tgtText;
+                document.getElementById('result').value = srcText;
+            }
+        }
+        
+        function clearAll() {
+            document.getElementById('source').value = '';
+            document.getElementById('result').value = '';
+            document.getElementById('context').value = '';
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('terms-list').innerHTML = '';
+            document.getElementById('streamOutput').innerHTML = '';
+            document.getElementById('streamOutput').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('progressBar').style.display = 'none';
+        }
+        
+        function copyText(id) {
+            const text = document.getElementById(id).value;
+            navigator.clipboard.writeText(text).then(() => alert('已复制'));
+        }
+        
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        }
+        
+        function updateVal(id, val) { document.getElementById(id).textContent = val; }
+        
+        function addTerm() {
+            const list = document.getElementById('terms-list');
+            const row = document.createElement('div');
+            row.className = 'term-row';
+            row.innerHTML = `<input placeholder="原文术语"><input placeholder="翻译"><button onclick="this.parentElement.remove()">✕</button>`;
+            list.appendChild(row);
+        }
+        
+        async function releaseGPU() {
+            await fetch('/api/gpu/offload', {method: 'POST'});
+            updateGPU();
+        }
+        
+        document.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter') doTranslate(false); });
+        
+        init();
+    </script>
+</body>
+</html>

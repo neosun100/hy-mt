@@ -1,0 +1,25 @@
+services:
+  hy-mt:
+    build: .
+    image: neosun/hy-mt:latest
+    container_name: hy-mt
+    runtime: nvidia
+    ports:
+      - "0.0.0.0:${PORT:-8021}:8021"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-0}
+      - MODEL_NAME=${MODEL_NAME:-tencent/HY-MT1.5-1.8B}
+      - GPU_IDLE_TIMEOUT=${GPU_IDLE_TIMEOUT:-300}
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://huggingface.co}
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    volumes:
+      - ${MODEL_PATH:-./models}:/app/models
+      - /tmp/hy-mt:/tmp/hy-mt
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

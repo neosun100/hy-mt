@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# Logs
+*.log
+logs/
+
+# Environment (keep .env.example)
+.env
+!.env.example
+
+# Models (large files - download at runtime)
+models/hub/
+models/*.bin
+models/*.safetensors
+models/*.gguf
+*.gguf
+
+# Build
+dist/
+build/
+
+# Cache
+.cache/
+*.cache
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Temp files
+/tmp/
+*.tmp
+*.temp
+
+# Secrets (never commit)
+*.pem
+*.key
+*_secret*
+*_token*
+credentials*
