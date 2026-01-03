@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HY-MT 翻译服务</title>
     <style>
-        :root { --bg: #f5f5f5; --card: #fff; --text: #333; --border: #ddd; --primary: #4a90d9; --success: #52c41a; }
+        :root { --bg: #f5f5f5; --card: #fff; --text: #333; --border: #ddd; --primary: #4a90d9; --success: #52c41a; --warning: #faad14; }
         .dark { --bg: #1a1a2e; --card: #16213e; --text: #eee; --border: #333; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; transition: all 0.3s; }
         .container { max-width: 1200px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         h1 { font-size: 1.5rem; }
-        .controls { display: flex; gap: 10px; }
+        .controls { display: flex; gap: 10px; align-items: center; }
         select, button, input, textarea { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font-size: 14px; }
         button { cursor: pointer; background: var(--primary); color: #fff; border: none; }
         button:hover { opacity: 0.9; }
@@ -44,11 +44,13 @@
         .term-row button { padding: 6px 12px; font-size: 12px; }
         .gpu-bar { margin-top: 20px; padding: 15px; background: var(--card); border-radius: 8px; }
         .gpu-bar h4 { font-size: 14px; margin-bottom: 10px; }
-        .gpu-info { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; }
+        .gpu-info { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; align-items: center; }
         .gpu-info span { display: flex; align-items: center; gap: 5px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
         .dot.on { background: var(--success); }
         .dot.off { background: #999; }
+        .dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         #loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
         .spinner { border: 3px solid #333; border-top-color: var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -61,6 +63,26 @@
         .file-upload input { display: none; }
         .chunk-item { padding: 8px; margin: 4px 0; background: var(--bg); border-left: 3px solid var(--primary); border-radius: 0 4px 4px 0; font-size: 14px; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* 模型选择器样式 */
+        .model-selector { margin-bottom: 20px; padding: 15px; background: var(--card); border-radius: 8px; }
+        .model-selector h4 { font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+        .model-card { padding: 12px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .model-card:hover { border-color: var(--primary); }
+        .model-card.active { border-color: var(--primary); background: rgba(74,144,217,0.1); }
+        .model-card.loading { border-color: var(--warning); }
+        .model-card .name { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+        .model-card .info { font-size: 11px; color: #888; }
+        .model-card .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 4px; }
+        .badge-base { background: #e3f2fd; color: #1976d2; }
+        .badge-fp8 { background: #fff3e0; color: #f57c00; }
+        .badge-int4 { background: #e8f5e9; color: #388e3c; }
+        .badge-7b { background: #fce4ec; color: #c2185b; }
+        .dark .badge-base { background: #1565c0; color: #fff; }
+        .dark .badge-fp8 { background: #ef6c00; color: #fff; }
+        .dark .badge-int4 { background: #2e7d32; color: #fff; }
+        .dark .badge-7b { background: #ad1457; color: #fff; }
     </style>
 </head>
 <body>
@@ -72,6 +94,12 @@
                 <a href="/docs" target="_blank"><button type="button">📚 API文档</button></a>
             </div>
         </header>
+
+        <!-- 模型选择器 -->
+        <div class="model-selector">
+            <h4>🤖 选择模型 <span id="model-loading" style="display:none;color:var(--warning);font-size:12px;">加载中...</span></h4>
+            <div class="model-grid" id="model-grid"></div>
+        </div>
 
         <div class="main">
             <div class="panel">
@@ -139,6 +167,7 @@
                     <span>📝 输入: <span id="stat-input">-</span> 字符</span>
                     <span>📄 输出: <span id="stat-output">-</span> 字符</span>
                     <span>📦 分段: <span id="stat-chunks">-</span></span>
+                    <span>🤖 模型: <span id="stat-model">-</span></span>
                 </div>
             </div>
         </div>
@@ -149,7 +178,7 @@
                 <span><span class="dot" id="gpu-dot"></span> <span id="gpu-status">检查中...</span></span>
                 <span>💾 显存: <span id="gpu-mem">-</span></span>
                 <span>⏰ 空闲: <span id="gpu-idle">-</span></span>
-                <span>🤖 模型: <span id="gpu-model">-</span></span>
+                <span>🤖 当前模型: <span id="gpu-model">-</span></span>
                 <button onclick="releaseGPU()" style="padding:4px 10px;font-size:12px;">释放显存</button>
             </div>
         </div>
@@ -159,8 +188,11 @@
 
     <script>
         const LANGS = {};
+        let MODELS = {};
+        let currentModel = null;
         
         async function init() {
+            // 加载语言列表
             const langs = await fetch('/api/languages').then(r => r.json());
             Object.assign(LANGS, langs);
             
@@ -174,6 +206,9 @@
                 tgtSel.innerHTML += `<option value="${code}">${name} (${code})</option>`;
             }
             tgtSel.value = 'zh';
+            
+            // 加载模型列表
+            await loadModels();
             
             updateGPU();
             setInterval(updateGPU, 10000);
@@ -190,6 +225,74 @@
             fileInput.onchange = () => handleFile(fileInput.files[0]);
         }
         
+        async function loadModels() {
+            const data = await fetch('/api/models').then(r => r.json());
+            MODELS = data.models;
+            currentModel = data.current || data.default;
+            renderModelGrid();
+        }
+        
+        function renderModelGrid() {
+            const grid = document.getElementById('model-grid');
+            grid.innerHTML = '';
+            
+            for (const [id, info] of Object.entries(MODELS)) {
+                const card = document.createElement('div');
+                card.className = 'model-card' + (currentModel === id ? ' active' : '');
+                card.dataset.model = id;
+                
+                const badges = [];
+                if (info.size === '7B') badges.push('<span class="badge badge-7b">7B</span>');
+                else badges.push('<span class="badge badge-base">1.8B</span>');
+                
+                if (info.type === 'fp8') badges.push('<span class="badge badge-fp8">FP8</span>');
+                else if (info.type === 'int4') badges.push('<span class="badge badge-int4">INT4</span>');
+                
+                card.innerHTML = `
+                    <div class="name">${info.name}</div>
+                    <div class="info">${badges.join('')} 显存: ${info.vram}</div>
+                    <div class="info" style="margin-top:4px;">${info.description}</div>
+                `;
+                card.onclick = () => switchModel(id);
+                grid.appendChild(card);
+            }
+        }
+        
+        async function switchModel(modelId) {
+            if (modelId === currentModel) return;
+            
+            const cards = document.querySelectorAll('.model-card');
+            cards.forEach(c => c.classList.remove('active', 'loading'));
+            
+            const targetCard = document.querySelector(`[data-model="${modelId}"]`);
+            targetCard.classList.add('loading');
+            document.getElementById('model-loading').style.display = 'inline';
+            
+            try {
+                const res = await fetch('/api/models/switch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({model: modelId})
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    currentModel = modelId;
+                    targetCard.classList.remove('loading');
+                    targetCard.classList.add('active');
+                    updateGPU();
+                } else {
+                    alert('切换失败: ' + data.error);
+                    targetCard.classList.remove('loading');
+                }
+            } catch(e) {
+                alert('切换失败: ' + e.message);
+                targetCard.classList.remove('loading');
+            } finally {
+                document.getElementById('model-loading').style.display = 'none';
+            }
+        }
+        
         function handleFile(file) {
             if (!file) return;
             const reader = new FileReader();
@@ -203,11 +306,27 @@
         async function updateGPU() {
             try {
                 const data = await fetch('/api/gpu/status').then(r => r.json());
-                document.getElementById('gpu-dot').className = 'dot ' + (data.loaded ? 'on' : 'off');
-                document.getElementById('gpu-status').textContent = data.loaded ? '已加载' : '未加载';
+                const dot = document.getElementById('gpu-dot');
+                
+                if (data.loading) {
+                    dot.className = 'dot loading';
+                    document.getElementById('gpu-status').textContent = '加载中...';
+                } else {
+                    dot.className = 'dot ' + (data.loaded ? 'on' : 'off');
+                    document.getElementById('gpu-status').textContent = data.loaded ? '已加载' : '未加载';
+                }
+                
                 document.getElementById('gpu-mem').textContent = `${data.gpu_free_mb} / ${data.gpu_total_mb} MB`;
                 document.getElementById('gpu-idle').textContent = data.idle_seconds !== null ? `${data.idle_seconds}秒` : '-';
-                document.getElementById('gpu-model').textContent = data.model_name || '-';
+                
+                const modelName = data.current_model ? MODELS[data.current_model]?.name || data.current_model : '-';
+                document.getElementById('gpu-model').textContent = modelName;
+                
+                // 更新模型卡片状态
+                if (data.current_model && data.current_model !== currentModel) {
+                    currentModel = data.current_model;
+                    renderModelGrid();
+                }
             } catch(e) {}
         }
         
@@ -249,12 +368,12 @@
                 repetition_penalty: parseFloat(document.getElementById('repetition_penalty').value),
                 context: document.getElementById('context').value || null,
                 terms: Object.keys(terms).length > 0 ? terms : null,
-                stream
+                stream,
+                model: currentModel
             };
             
             try {
                 if (stream) {
-                    // 流式翻译
                     const response = await fetch('/api/translate', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -265,6 +384,7 @@
                     const decoder = new TextDecoder();
                     let results = [];
                     let totalChunks = 1;
+                    let usedModel = '';
                     
                     while (true) {
                         const { done, value } = await reader.read();
@@ -277,6 +397,7 @@
                                     const data = JSON.parse(line.slice(6));
                                     if (data.event === 'start') {
                                         totalChunks = data.total_chunks;
+                                        usedModel = data.model;
                                         document.getElementById('stat-input').textContent = data.input_length;
                                         document.getElementById('stat-chunks').textContent = totalChunks;
                                     } else if (data.event === 'chunk') {
@@ -288,11 +409,11 @@
                                         streamOutput.appendChild(div);
                                         streamOutput.scrollTop = streamOutput.scrollHeight;
                                     } else if (data.event === 'done') {
-                                        // 完成后隐藏分段，显示合并结果
                                         streamOutput.style.display = 'none';
                                         resultArea.style.display = 'block';
                                         document.getElementById('stat-time').textContent = data.elapsed_ms + ' ms';
                                         document.getElementById('stat-output').textContent = data.output_length;
+                                        document.getElementById('stat-model').textContent = MODELS[data.model]?.name || data.model;
                                         document.getElementById('stats').style.display = 'block';
                                         resultArea.value = results.join('\n');
                                     }
@@ -301,7 +422,6 @@
                         }
                     }
                 } else {
-                    // 普通翻译
                     const res = await fetch('/api/translate', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -316,6 +436,7 @@
                         document.getElementById('stat-input').textContent = data.input_length;
                         document.getElementById('stat-output').textContent = data.output_length;
                         document.getElementById('stat-chunks').textContent = data.chunks;
+                        document.getElementById('stat-model').textContent = MODELS[data.model]?.name || data.model;
                     } else {
                         alert('翻译失败: ' + (data.detail || data.error));
                     }
@@ -376,6 +497,8 @@
         
         async function releaseGPU() {
             await fetch('/api/gpu/offload', {method: 'POST'});
+            currentModel = null;
+            renderModelGrid();
             updateGPU();
         }
         

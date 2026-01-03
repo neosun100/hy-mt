@@ -27,6 +27,18 @@
 - 🤖 **MCP Server** - Model Context Protocol support for AI assistants (Claude, etc.)
 - 🐳 **One-Click Deployment** - All-in-One Docker image with model auto-download
 - 🔄 **Smart GPU Management** - Auto GPU selection, idle timeout, memory release
+- 🔀 **Multi-Model Support** - Switch between 4 models (1.8B/7B, base/FP8) via UI or API
+
+## 🎯 Model Selection Guide
+
+| Model | VRAM | Speed | Quality | Recommendation |
+|-------|------|-------|---------|----------------|
+| **HY-MT 7B** | 16GB | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 🏆 **Best Choice** - Highest quality, fast speed |
+| HY-MT 1.8B | 6GB | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Good for limited VRAM |
+| HY-MT 1.8B FP8 | 4GB | ⭐⭐⭐ | ⭐⭐⭐⭐ | For VRAM < 6GB |
+| HY-MT 7B FP8 | 10GB | ⭐⭐ | ⭐⭐⭐⭐⭐ | 7B quality with less VRAM |
+
+> 💡 **Tip**: If you have 16GB+ VRAM, use **HY-MT 7B** for best results. FP8 models save memory but are slower due to runtime decompression.
 
 ## 📸 Screenshot
 
@@ -39,7 +51,7 @@
 ### Docker Run (Recommended)
 
 ```bash
-# One command to start
+# One command to start (uses 7B model by default if VRAM >= 16GB)
 docker run -d --gpus all \
   -p 8021:8021 \
   -v ./models:/app/models \
@@ -50,7 +62,7 @@ docker run -d --gpus all \
 open http://localhost:8021
 ```
 
-The model (~3.5GB) will be automatically downloaded on first run.
+The model (~3.5GB for 1.8B, ~14GB for 7B) will be automatically downloaded on first run.
 
 ### Docker Compose
 
@@ -64,7 +76,7 @@ services:
     ports:
       - "8021:8021"
     environment:
-      - MODEL_NAME=tencent/HY-MT1.5-1.8B
+      - MODEL_NAME=tencent/HY-MT1.5-7B  # Recommended for 16GB+ VRAM
       - GPU_IDLE_TIMEOUT=300
       - HF_ENDPOINT=https://huggingface.co  # Use https://hf-mirror.com for China
     volumes:
@@ -87,7 +99,7 @@ docker compose up -d
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| GPU | NVIDIA GPU with 6GB+ VRAM | 8GB+ VRAM |
+| GPU | NVIDIA GPU with 6GB+ VRAM | 16GB+ VRAM (for 7B model) |
 | CUDA | 11.8+ | 12.4+ |
 | Docker | 20.10+ | 24.0+ |
 | nvidia-docker | Required | - |
@@ -189,11 +201,30 @@ curl "http://localhost:8021/api/translate/file" \
 | `/api/translate` | POST | Translate text (supports streaming) |
 | `/api/translate/file` | POST | Upload and translate file |
 | `/api/translate/batch` | POST | Batch translation |
+| `/api/translate/stream` | POST | Streaming translation (SSE) |
 | `/api/languages` | GET | List supported languages |
+| `/api/models` | GET | List available models |
+| `/api/models/switch` | POST | Switch translation model |
 | `/api/gpu/status` | GET | GPU status and memory info |
 | `/api/gpu/offload` | POST | Release GPU memory |
+| `/api/config` | GET | Service configuration |
 | `/health` | GET | Health check |
 | `/docs` | GET | Swagger API documentation |
+
+## 📊 Performance Benchmark
+
+Tested on NVIDIA L40S GPU, translating English to Chinese:
+
+| Model | Short (61 chars) | Medium (530 chars) | Long (1.8K chars) | Extra Long (4.2K chars) |
+|-------|------------------|--------------------|--------------------|-------------------------|
+| **HY-MT 7B** | 0.4s | 4.4s | 17.7s | 43.0s |
+| HY-MT 1.8B | 0.4s | 3.6s | 14.0s | 32.3s |
+| HY-MT 1.8B FP8 | 1.1s | 10.8s | 38.1s | 92.9s |
+| HY-MT 7B FP8 | 2.9s | 28.5s | 115.6s | 274.1s |
+
+> ⚠️ **Why are FP8 models slower?** FP8 quantization reduces memory usage (not speed). The model needs runtime decompression from 8-bit to 16-bit for each inference, which adds overhead. Use FP8 only when VRAM is limited.
+
+See [Benchmark Report](docs/BENCHMARK_REPORT.md) for detailed analysis.
 
 ## 🔑 Key Optimization: Chunk Size
 
@@ -238,9 +269,11 @@ And 17 more languages. See `/api/languages` for full list.
 hy-mt/
 ├── app_fastapi.py      # Main FastAPI application
 ├── mcp_server.py       # MCP Server for AI assistants
+├── benchmark.py        # Performance benchmark script
 ├── templates/
 │   └── index.html      # Web UI (Dark/Light theme)
 ├── docs/
+│   ├── BENCHMARK_REPORT.md    # Performance test report
 │   ├── OPTIMIZATION_GUIDE.md  # Long text optimization guide
 │   └── QUICK_REFERENCE.md     # API quick reference
 ├── Dockerfile          # All-in-One Docker build
@@ -296,6 +329,24 @@ See [MCP_GUIDE.md](MCP_GUIDE.md) for details.
 | Translation incomplete | Already optimized with chunk size 150 |
 
 ## 📝 Changelog
+
+### v2.0.1 (2026-01-03)
+- 🏆 Default model changed to **HY-MT 7B** (best quality & speed)
+- 🩺 Added Docker HEALTHCHECK for container health monitoring
+- 📦 Container status now shows `(healthy)` when ready
+
+### v2.0.0 (2026-01-03) - True All-in-One
+- 🎯 **All 4 models pre-downloaded in Docker image** - No external downloads needed!
+- 📦 Image size: ~43GB (includes all models)
+- 🏆 Recommended: HY-MT 7B for best quality and speed
+- 📊 Added performance benchmark report
+- 🔧 Added `benchmark.py` for reproducible testing
+
+### v1.2.0 (2026-01-03)
+- 🔀 Multi-model support (4 models: 1.8B, 1.8B-FP8, 7B, 7B-FP8)
+- 🔄 Model switching via UI and API
+- 📝 MCP Server: added `list_models` and `switch_model` tools
+- 🐛 Fixed model name display in translation response
 
 ### v1.0.0 (2026-01-03)
 - 🎉 Initial release

@@ -1,5 +1,5 @@
 """
-HY-MT 翻译服务 - FastAPI 版本 (流式增强版)
+HY-MT 翻译服务 - FastAPI 版本 (多模型支持版)
 """
 import os
 import time
@@ -17,9 +17,41 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, AsyncGenerator
 
 # ==================== 配置 ====================
-MODEL_NAME = os.getenv("MODEL_NAME", "tencent/HY-MT1.5-1.8B")
+DEFAULT_MODEL = os.getenv("MODEL_NAME", "tencent/HY-MT1.5-7B")
 GPU_IDLE_TIMEOUT = int(os.getenv("GPU_IDLE_TIMEOUT", "300"))
 MAX_CHUNK_LENGTH = int(os.getenv("MAX_CHUNK_LENGTH", "150"))
+
+# 支持的模型列表
+AVAILABLE_MODELS = {
+    "tencent/HY-MT1.5-1.8B": {
+        "name": "HY-MT 1.8B",
+        "size": "1.8B",
+        "type": "base",
+        "vram": "6GB",
+        "description": "基础模型，平衡速度与质量"
+    },
+    "tencent/HY-MT1.5-1.8B-FP8": {
+        "name": "HY-MT 1.8B FP8",
+        "size": "1.8B",
+        "type": "fp8",
+        "vram": "4GB",
+        "description": "FP8 量化，更低显存占用"
+    },
+    "tencent/HY-MT1.5-7B": {
+        "name": "HY-MT 7B",
+        "size": "7B",
+        "type": "base",
+        "vram": "16GB",
+        "description": "大模型，最高翻译质量"
+    },
+    "tencent/HY-MT1.5-7B-FP8": {
+        "name": "HY-MT 7B FP8",
+        "size": "7B",
+        "type": "fp8",
+        "vram": "10GB",
+        "description": "7B FP8 量化版本"
+    }
+}
 
 LANGUAGES = {
     "zh": "中文", "en": "英语", "ja": "日语", "ko": "韩语", "fr": "法语",
@@ -33,25 +65,74 @@ LANGUAGES = {
     "mn": "蒙古语", "ug": "维吾尔语", "yue": "粤语"
 }
 
-# ==================== GPU 管理 ====================
+# ==================== GPU 管理（多模型支持） ====================
 class GPUManager:
     def __init__(self):
         self.model = None
         self.tokenizer = None
+        self.current_model_name = None
         self.lock = threading.Lock()
         self.last_used = 0
         self.unload_timer = None
+        self.loading = False
     
-    def load(self):
+    def load(self, model_name: str = None):
+        """加载指定模型，如果模型不同则先卸载当前模型"""
+        if model_name is None:
+            # 如果已有模型加载，使用当前模型；否则使用默认模型
+            model_name = self.current_model_name if self.current_model_name else DEFAULT_MODEL
+        
         with self.lock:
-            if self.model is None:
+            # 如果请求的模型与当前加载的模型相同，直接返回
+            if self.model is not None and self.current_model_name == model_name:
+                self.last_used = time.time()
+                self._schedule_unload()
+                return self.model, self.tokenizer
+            
+            # 如果有其他模型加载，先卸载
+            if self.model is not None:
+                self._do_unload()
+            
+            # 加载新模型
+            self.loading = True
+            try:
                 from transformers import AutoModelForCausalLM, AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    MODEL_NAME, device_map="auto", torch_dtype=torch.bfloat16
-                )
-            self.last_used = time.time()
-            self._schedule_unload()
+                
+                model_info = AVAILABLE_MODELS.get(model_name, {})
+                model_type = model_info.get("type", "base")
+                
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                
+                # 根据模型类型选择加载方式
+                if model_type == "int4":
+                    # GPTQ INT4 模型 - 使用 AutoGPTQ
+                    try:
+                        from auto_gptq import AutoGPTQForCausalLM
+                        self.model = AutoGPTQForCausalLM.from_quantized(
+                            model_name, device_map="auto", use_safetensors=True
+                        )
+                    except ImportError:
+                        # 回退到标准加载
+                        self.model = AutoModelForCausalLM.from_pretrained(
+                            model_name, device_map="auto", torch_dtype=torch.float16
+                        )
+                elif model_type == "fp8":
+                    # FP8 模型 - 标准加载
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name, device_map="auto", torch_dtype=torch.bfloat16
+                    )
+                else:
+                    # 基础模型
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name, device_map="auto", torch_dtype=torch.bfloat16
+                    )
+                
+                self.current_model_name = model_name
+                self.last_used = time.time()
+                self._schedule_unload()
+            finally:
+                self.loading = False
+            
             return self.model, self.tokenizer
     
     def _schedule_unload(self):
@@ -61,21 +142,34 @@ class GPUManager:
         self.unload_timer.daemon = True
         self.unload_timer.start()
     
+    def _do_unload(self):
+        """实际执行卸载"""
+        if self.model:
+            del self.model, self.tokenizer
+            self.model = self.tokenizer = None
+            self.current_model_name = None
+            gc.collect()
+            torch.cuda.empty_cache()
+    
     def _unload(self):
         with self.lock:
             if self.model and time.time() - self.last_used >= GPU_IDLE_TIMEOUT:
-                del self.model, self.tokenizer
-                self.model = self.tokenizer = None
-                gc.collect()
-                torch.cuda.empty_cache()
+                self._do_unload()
+    
+    def force_unload(self):
+        """强制卸载当前模型"""
+        with self.lock:
+            self._do_unload()
     
     def status(self):
         return {
             "loaded": self.model is not None,
+            "loading": self.loading,
+            "current_model": self.current_model_name,
             "idle_seconds": int(time.time() - self.last_used) if self.last_used else 0,
             "gpu_free_mb": int(torch.cuda.mem_get_info()[0] / 1024 / 1024) if torch.cuda.is_available() else 0,
             "gpu_total_mb": int(torch.cuda.mem_get_info()[1] / 1024 / 1024) if torch.cuda.is_available() else 0,
-            "model_name": MODEL_NAME
+            "default_model": DEFAULT_MODEL
         }
 
 gpu = GPUManager()
@@ -135,16 +229,14 @@ def translate_single(text: str, target_lang: str, source_lang: str = None,
                      terms: dict = None, context: str = None,
                      temperature: float = 0.7, top_p: float = 0.6, 
                      top_k: int = 20, repetition_penalty: float = 1.1,
-                     max_new_tokens: int = 2048) -> str:
+                     max_new_tokens: int = 2048, model_name: str = None) -> str:
     """翻译单个文本块"""
-    model, tokenizer = gpu.load()
+    model, tokenizer = gpu.load(model_name)
     target_name = LANGUAGES.get(target_lang, target_lang)
     
-    # 检测输入是否包含中文
     def has_chinese(s):
         return any('\u4e00' <= c <= '\u9fff' for c in s)
     
-    # 判断是否使用中文 prompt
     input_is_chinese = source_lang in ["zh", "zh-Hant"] or (source_lang is None and has_chinese(text))
     use_chinese_prompt = input_is_chinese or target_lang in ["zh", "zh-Hant"]
     
@@ -181,23 +273,13 @@ def translate_single(text: str, target_lang: str, source_lang: str = None,
     )
     return tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True).strip()
 
-def _smart_truncate(text: str, max_len: int) -> str:
-    """智能截取"""
-    if len(text) <= max_len:
-        return text
-    truncated = text[-max_len:]
-    for sep in ['. ', '。', '！', '？', '! ', '? ']:
-        pos = truncated.find(sep)
-        if 0 < pos < len(truncated) - 30:
-            return truncated[pos + len(sep):]
-    return truncated
-
 
 def translate(text: str, target_lang: str, source_lang: str = None,
               terms: dict = None, context: str = None,
               temperature: float = 0.7, top_p: float = 0.6, 
               top_k: int = 20, repetition_penalty: float = 1.1,
-              max_new_tokens: int = 2048, auto_split: bool = True) -> dict:
+              max_new_tokens: int = 2048, auto_split: bool = True,
+              model_name: str = None) -> dict:
     """翻译文本 - 带重试机制"""
     start_time = time.time()
     chunks = split_text(text) if auto_split else [text]
@@ -209,24 +291,21 @@ def translate(text: str, target_lang: str, source_lang: str = None,
     for i, chunk in enumerate(chunks):
         current_context = context if i == 0 else None
         
-        # 使用用户设置的温度
-        actual_temp = temperature
         result = translate_single(
             text=chunk, target_lang=target_lang, source_lang=source_lang,
-            terms=terms, context=current_context, temperature=actual_temp,
+            terms=terms, context=current_context, temperature=temperature,
             top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty,
-            max_new_tokens=max_new_tokens
+            max_new_tokens=max_new_tokens, model_name=model_name
         )
         
-        # 如果目标语言不是中文，但结果包含大量中文，重试一次
         if target_lang not in ["zh", "zh-Hant"] and has_chinese(result):
             chinese_ratio = sum(1 for c in result if '\u4e00' <= c <= '\u9fff') / max(len(result), 1)
-            if chinese_ratio > 0.3:  # 超过30%是中文，重试
+            if chinese_ratio > 0.3:
                 result = translate_single(
                     text=chunk, target_lang=target_lang, source_lang=source_lang,
-                    terms=terms, context=None, temperature=0.5,  # 降低温度
+                    terms=terms, context=None, temperature=0.5,
                     top_p=top_p, top_k=top_k, repetition_penalty=1.15,
-                    max_new_tokens=max_new_tokens
+                    max_new_tokens=max_new_tokens, model_name=model_name
                 )
         
         results.append(result)
@@ -239,7 +318,8 @@ def translate(text: str, target_lang: str, source_lang: str = None,
         "elapsed_ms": elapsed_ms,
         "chunks": len(chunks),
         "input_length": len(text),
-        "output_length": len(final_result)
+        "output_length": len(final_result),
+        "model": gpu.current_model_name
     }
 
 
@@ -247,13 +327,13 @@ async def translate_stream(text: str, target_lang: str, source_lang: str = None,
                            terms: dict = None, context: str = None,
                            temperature: float = 0.7, top_p: float = 0.6,
                            top_k: int = 20, repetition_penalty: float = 1.1,
-                           max_new_tokens: int = 2048) -> AsyncGenerator[str, None]:
+                           max_new_tokens: int = 2048, model_name: str = None) -> AsyncGenerator[str, None]:
     """流式翻译 - 逐段返回结果"""
     start_time = time.time()
     chunks = split_text(text)
     total_chunks = len(chunks)
     
-    yield f"data: {json.dumps({'event': 'start', 'total_chunks': total_chunks, 'input_length': len(text)})}\n\n"
+    yield f"data: {json.dumps({'event': 'start', 'total_chunks': total_chunks, 'input_length': len(text), 'model': model_name or DEFAULT_MODEL})}\n\n"
     
     results = []
     
@@ -264,8 +344,6 @@ async def translate_stream(text: str, target_lang: str, source_lang: str = None,
         
         current_context = context if i == 0 else None
         
-        # 使用用户设置的温度
-        actual_temp = temperature
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
@@ -273,7 +351,7 @@ async def translate_stream(text: str, target_lang: str, source_lang: str = None,
                 text=c, target_lang=target_lang, source_lang=source_lang,
                 terms=terms, context=ctx, temperature=temperature,
                 top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty,
-                max_new_tokens=max_new_tokens
+                max_new_tokens=max_new_tokens, model_name=model_name
             )
         )
         results.append(result)
@@ -285,7 +363,7 @@ async def translate_stream(text: str, target_lang: str, source_lang: str = None,
     total_elapsed = int((time.time() - start_time) * 1000)
     final_result = "\n".join(results)
     
-    yield f"data: {json.dumps({'event': 'done', 'total_chunks': total_chunks, 'elapsed_ms': total_elapsed, 'output_length': len(final_result)})}\n\n"
+    yield f"data: {json.dumps({'event': 'done', 'total_chunks': total_chunks, 'elapsed_ms': total_elapsed, 'output_length': len(final_result), 'model': gpu.current_model_name})}\n\n"
 
 
 # ==================== Pydantic 模型 ====================
@@ -302,6 +380,7 @@ class TranslateRequest(BaseModel):
     max_new_tokens: int = Field(2048, ge=1, le=4096)
     auto_split: bool = Field(True, description="自动分段")
     stream: bool = Field(False, description="流式返回")
+    model: Optional[str] = Field(None, description="指定模型名称")
 
 class TranslateResponse(BaseModel):
     status: str
@@ -310,20 +389,56 @@ class TranslateResponse(BaseModel):
     chunks: Optional[int] = None
     input_length: Optional[int] = None
     output_length: Optional[int] = None
+    model: Optional[str] = None
     error: Optional[str] = None
 
+class SwitchModelRequest(BaseModel):
+    model: str = Field(..., description="模型名称")
+
 # ==================== API 端点 ====================
+@app.get("/api/models")
+async def api_models():
+    """获取可用模型列表"""
+    return {
+        "models": AVAILABLE_MODELS,
+        "current": gpu.current_model_name,
+        "default": DEFAULT_MODEL
+    }
+
+
+@app.post("/api/models/switch")
+async def api_switch_model(req: SwitchModelRequest):
+    """切换模型"""
+    if req.model not in AVAILABLE_MODELS:
+        raise HTTPException(status_code=400, detail=f"Unknown model: {req.model}")
+    
+    try:
+        start_time = time.time()
+        gpu.load(req.model)
+        elapsed = int((time.time() - start_time) * 1000)
+        return {
+            "status": "success",
+            "model": req.model,
+            "elapsed_ms": elapsed,
+            "message": f"Model switched to {AVAILABLE_MODELS[req.model]['name']}"
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 @app.post("/api/translate")
 async def api_translate(req: TranslateRequest):
-    """翻译接口 - 支持流式和非流式"""
+    """翻译接口 - 支持流式和非流式，支持指定模型"""
     try:
+        model_name = req.model if req.model else None
+        
         if req.stream:
             return StreamingResponse(
                 translate_stream(
                     text=req.text, target_lang=req.target_lang, source_lang=req.source_lang,
                     terms=req.terms, context=req.context, temperature=req.temperature,
                     top_p=req.top_p, top_k=req.top_k, repetition_penalty=req.repetition_penalty,
-                    max_new_tokens=req.max_new_tokens
+                    max_new_tokens=req.max_new_tokens, model_name=model_name
                 ),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
@@ -333,7 +448,8 @@ async def api_translate(req: TranslateRequest):
                 text=req.text, target_lang=req.target_lang, source_lang=req.source_lang,
                 terms=req.terms, context=req.context, temperature=req.temperature,
                 top_p=req.top_p, top_k=req.top_k, repetition_penalty=req.repetition_penalty,
-                max_new_tokens=req.max_new_tokens, auto_split=req.auto_split
+                max_new_tokens=req.max_new_tokens, auto_split=req.auto_split,
+                model_name=model_name
             )
             return TranslateResponse(status="success", **result)
     except Exception as e:
@@ -343,12 +459,13 @@ async def api_translate(req: TranslateRequest):
 @app.post("/api/translate/stream")
 async def api_translate_stream(req: TranslateRequest):
     """流式翻译接口（专用端点）"""
+    model_name = req.model if req.model else None
     return StreamingResponse(
         translate_stream(
             text=req.text, target_lang=req.target_lang, source_lang=req.source_lang,
             terms=req.terms, context=req.context, temperature=req.temperature,
             top_p=req.top_p, top_k=req.top_k, repetition_penalty=req.repetition_penalty,
-            max_new_tokens=req.max_new_tokens
+            max_new_tokens=req.max_new_tokens, model_name=model_name
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
@@ -360,6 +477,7 @@ async def api_translate_file(
     file: UploadFile = File(...),
     target_lang: str = Form(...),
     source_lang: Optional[str] = Form(None),
+    model: Optional[str] = Form(None),
     stream: bool = Form(True)
 ):
     """文件翻译接口 - 支持上传文本文件"""
@@ -369,12 +487,12 @@ async def api_translate_file(
         
         if stream:
             return StreamingResponse(
-                translate_stream(text=text, target_lang=target_lang, source_lang=source_lang),
+                translate_stream(text=text, target_lang=target_lang, source_lang=source_lang, model_name=model),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
             )
         else:
-            result = translate(text=text, target_lang=target_lang, source_lang=source_lang)
+            result = translate(text=text, target_lang=target_lang, source_lang=source_lang, model_name=model)
             return TranslateResponse(status="success", **result)
     except UnicodeDecodeError:
         return TranslateResponse(status="error", error="文件编码错误，请使用 UTF-8 编码")
@@ -387,6 +505,7 @@ class BatchRequest(BaseModel):
     target_lang: str
     source_lang: Optional[str] = None
     terms: Optional[dict] = None
+    model: Optional[str] = None
 
 @app.post("/api/translate/batch")
 async def api_translate_batch(req: BatchRequest):
@@ -397,7 +516,8 @@ async def api_translate_batch(req: BatchRequest):
         t0 = time.time()
         try:
             r = translate(text=text, target_lang=req.target_lang, 
-                         source_lang=req.source_lang, terms=req.terms)
+                         source_lang=req.source_lang, terms=req.terms,
+                         model_name=req.model)
             results.append({"status": "success", "result": r["result"], 
                           "elapsed_ms": int((time.time() - t0) * 1000)})
         except Exception as e:
@@ -407,7 +527,8 @@ async def api_translate_batch(req: BatchRequest):
         "status": "success",
         "results": results,
         "total_elapsed_ms": int((time.time() - start_time) * 1000),
-        "count": len(results)
+        "count": len(results),
+        "model": gpu.current_model_name
     }
 
 
@@ -423,10 +544,9 @@ async def api_gpu_status():
 
 @app.post("/api/gpu/offload")
 async def api_gpu_offload():
-    gpu._unload()
-    return {"status": "ok"}
-async def api_gpu_status():
-    return gpu.status()
+    gpu.force_unload()
+    return {"status": "ok", "message": "GPU memory released"}
+
 
 @app.get("/health")
 async def health():
@@ -436,7 +556,9 @@ async def health():
 @app.get("/api/config")
 async def api_config():
     return {
-        "model_name": MODEL_NAME,
+        "default_model": DEFAULT_MODEL,
+        "current_model": gpu.current_model_name,
+        "available_models": list(AVAILABLE_MODELS.keys()),
         "max_chunk_length": MAX_CHUNK_LENGTH,
         "gpu_idle_timeout": GPU_IDLE_TIMEOUT,
         "supported_languages": len(LANGUAGES),

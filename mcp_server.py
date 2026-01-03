@@ -163,5 +163,28 @@ def get_config() -> dict:
     }
 
 
+@mcp.tool()
+def list_models() -> dict:
+    """获取可用的翻译模型列表"""
+    resp = requests.get(f"{API_BASE}/api/models", timeout=30)
+    return resp.json()
+
+
+@mcp.tool()
+def switch_model(model: str) -> dict:
+    """
+    切换翻译模型
+    
+    Args:
+        model: 模型名称，可选值:
+            - tencent/HY-MT1.5-1.8B (基础模型，6GB显存，推荐日常使用)
+            - tencent/HY-MT1.5-1.8B-FP8 (FP8量化，4GB显存)
+            - tencent/HY-MT1.5-7B (大模型，16GB显存，最高质量，推荐)
+            - tencent/HY-MT1.5-7B-FP8 (7B FP8量化，10GB显存)
+    """
+    resp = requests.post(f"{API_BASE}/api/models/switch", json={"model": model}, timeout=300)
+    return resp.json()
+
+
 if __name__ == "__main__":
     mcp.run()
